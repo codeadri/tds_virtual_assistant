@@ -144,7 +144,7 @@ async def answer_question(request: Request):
              for url, desc in rows if desc and url]
 
     return JSONResponse(content={"answer": answer, "links": links})
-"""if __name__ == "__main__":
+if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=10000)"""
+    uvicorn.run("main:app", host="0.0.0.0", port=10000)
 
