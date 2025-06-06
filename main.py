@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import time
 import json
+import os
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
@@ -24,7 +25,6 @@ app = FastAPI(lifespan=lifespan)
 DB_PATH = "tds_virtual_ta_fts.db"
 TABLE_NAME = "content_fts"
 #OPENROUTER_API_KEY = "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"
-import os
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODEL_NAME = "deepseek/deepseek-r1-0528:free"
