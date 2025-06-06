@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pytesseract
+requests
+Pillow
+aiofiles
+python-multipart
+mangum           # optional
