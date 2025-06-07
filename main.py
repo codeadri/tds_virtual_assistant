@@ -14,6 +14,7 @@ import json
 import os
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Request
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -153,8 +154,9 @@ async def answer_question(request: Request):
              for url, desc in rows if desc and url]
 
     return JSONResponse(content={"answer": answer, "links": links})
-@app.get("/")
-def root():
+
+@app.api_route("/", methods=["GET", "POST"])
+async def root(request: Request):
     return {"message": "FastAPI is running on Render!"}
 
 if __name__ == "__main__":
