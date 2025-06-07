@@ -6,3 +6,5 @@ Pillow
 aiofiles
 python-multipart
 mangum           # optional
+azure-ai-inference
+azure-core
