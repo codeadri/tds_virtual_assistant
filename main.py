@@ -155,8 +155,11 @@ async def answer_question(request: Request):
 
     return JSONResponse(content={"answer": answer, "links": links})
 
+
 @app.api_route("/", methods=["GET", "POST"])
 async def root(request: Request):
+    if request.method == "POST":
+        return await answer_question(request)
     return {"message": "FastAPI is running on Render!"}
 
 if __name__ == "__main__":
