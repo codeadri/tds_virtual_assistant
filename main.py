@@ -1,17 +1,17 @@
-import os
-import time
-import requests
-import asyncio
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from typing import Optional, List
 import base64
 import sqlite3
+import requests
 import pytesseract
 from PIL import Image
 import io
+import asyncio
 import hashlib
+import time
 import json
+import os
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
@@ -24,11 +24,9 @@ app = FastAPI(lifespan=lifespan)
 
 DB_PATH = "tds_virtual_ta_fts.db"
 TABLE_NAME = "content_fts"
-
-# Updated: Use GitHub Token env var here
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_API_URL = "https://models.github.ai/inference"
-MODEL_NAME = "openai/o4-mini"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+MODEL_NAME = "deepseek/deepseek-r1-0528:free"
 
 ocr_cache = {}
 
@@ -42,10 +40,9 @@ def extract_text_from_image_sync(image_data: bytes) -> str:
 async def extract_text_from_image_async(image_data: bytes) -> str:
     return await asyncio.to_thread(extract_text_from_image_sync, image_data)
 
-# Updated query_llm_async function for GitHub token usage and model endpoint
 async def query_llm_async(question: str, context: str) -> str:
     headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -59,7 +56,7 @@ async def query_llm_async(question: str, context: str) -> str:
     def post_request_with_retry():
         for attempt in range(3):
             try:
-                response = requests.post(GITHUB_API_URL, headers=headers, json=payload, timeout=60)
+                response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload, timeout=60)
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -70,7 +67,6 @@ async def query_llm_async(question: str, context: str) -> str:
     data = await asyncio.get_event_loop().run_in_executor(None, post_request_with_retry)
 
     try:
-        # GitHub API returns choices similarly, but just verify structure if needed
         return data["choices"][0]["message"]["content"]
     except (KeyError, IndexError) as e:
         raise HTTPException(status_code=502, detail=f"Unexpected LLM API response structure: {e} | {data}")
@@ -149,7 +145,6 @@ async def answer_question(request: Request):
              for url, desc in rows if desc and url]
 
     return JSONResponse(content={"answer": answer, "links": links})
-
 @app.get("/")
 def root():
     return {"message": "FastAPI is running on Render!"}
@@ -157,3 +152,5 @@ def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
+
