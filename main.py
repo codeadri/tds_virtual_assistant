@@ -1,3 +1,7 @@
+import os
+import time
+import requests
+import asyncio
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from typing import Optional, List
@@ -6,15 +10,9 @@ import sqlite3
 import pytesseract
 from PIL import Image
 import io
-import asyncio
 import hashlib
-import time
 import json
-import os
 from contextlib import asynccontextmanager
-from azure.ai.inference import ChatCompletionsClient
-from azure.ai.inference.models import SystemMessage, UserMessage
-from azure.core.credentials import AzureKeyCredential
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,9 +24,11 @@ app = FastAPI(lifespan=lifespan)
 
 DB_PATH = "tds_virtual_ta_fts.db"
 TABLE_NAME = "content_fts"
-GITHUB_GPT_TOKEN = os.getenv("GITHUB_TOKEN")
-AZURE_ENDPOINT = "https://models.github.ai/inference"
-MODEL_NAME = "openai/gpt-4.1"
+
+# Updated: Use GitHub Token env var here
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_API_URL = "https://models.github.ai/inference"
+MODEL_NAME = "openai/o4-mini"
 
 ocr_cache = {}
 
@@ -42,24 +42,38 @@ def extract_text_from_image_sync(image_data: bytes) -> str:
 async def extract_text_from_image_async(image_data: bytes) -> str:
     return await asyncio.to_thread(extract_text_from_image_sync, image_data)
 
+# Updated query_llm_async function for GitHub token usage and model endpoint
 async def query_llm_async(question: str, context: str) -> str:
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [
+            {"role": "system", "content": "You are a helpful TA for the Tools in Data Science course."},
+            {"role": "user", "content": f"{question}\n\nReference context:\n{context}"}
+        ]
+    }
+
+    def post_request_with_retry():
+        for attempt in range(3):
+            try:
+                response = requests.post(GITHUB_API_URL, headers=headers, json=payload, timeout=60)
+                response.raise_for_status()
+                return response.json()
+            except Exception as e:
+                if attempt == 2:
+                    raise HTTPException(status_code=502, detail=f"LLM API request failed after 3 attempts: {e}")
+                time.sleep(2)
+
+    data = await asyncio.get_event_loop().run_in_executor(None, post_request_with_retry)
+
     try:
-        client = ChatCompletionsClient(
-            endpoint=AZURE_ENDPOINT,
-            credential=AzureKeyCredential(GITHUB_GPT_TOKEN),
-        )
-
-        response = await asyncio.to_thread(client.complete, messages=[
-            SystemMessage("You are a helpful TA for the Tools in Data Science course."),
-            UserMessage(f"{question}\n\nReference context:\n{context}")
-        ],
-        temperature=1,
-        top_p=1,
-        model=MODEL_NAME)
-
-        return response.choices[0].message.content
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"LLM API call failed: {e}")
+        # GitHub API returns choices similarly, but just verify structure if needed
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError) as e:
+        raise HTTPException(status_code=502, detail=f"Unexpected LLM API response structure: {e} | {data}")
 
 def get_relevant_context(question: str, top_k: int = 3):
     conn = sqlite3.connect(DB_PATH)
