@@ -13,6 +13,7 @@ import time
 import json
 import os
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,6 +22,13 @@ async def lifespan(app: FastAPI):
     print("App shutdown: cleaning up resources if needed")
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Or restrict to submission domain if known
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 DB_PATH = "tds_virtual_ta_fts.db"
 TABLE_NAME = "content_fts"
